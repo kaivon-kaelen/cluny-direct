@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: clunydirect_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clunydirect
+      POSTGRES_PASSWORD: clunydirect_password
+      POSTGRES_DB: clunydirect_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - clunydirect_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clunydirect -d clunydirect_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: clunydirect_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://clunydirect:clunydirect_password@db:5432/clunydirect_db?schema=public
+      - PORT=45008
+      - NODE_ENV=production
+      - CORS_ORIGIN=*
+    ports:
+      - "45008:45008"
+
+volumes:
+  clunydirect_postgres_data:

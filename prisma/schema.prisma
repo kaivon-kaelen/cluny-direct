@@ -1,0 +1,300 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      Role     @default(PARENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eleve     Eleve?
+  professeur Professeur?
+  parent    Parent?
+
+  messagesEnvoyes   Message[] @relation("Sender")
+  messagesRecus     Message[] @relation("Receiver")
+  notifications     Notification[]
+
+  @@index([email])
+  @@index([role])
+}
+
+enum Role {
+  ADMIN
+  PROFESSEUR
+  ELEVE
+  PARENT
+}
+
+model Etablissement {
+  id          String     @id @default(uuid()) @db.Uuid
+  nom         String
+  adresse     String?
+  ville       String?
+  codePostal  String?
+  telephone   String?
+  email       String?
+  academie    String?
+  createdAt   DateTime   @default(now())
+
+  classes       Classe[]
+  matieres      Matiere[]
+  cours         Cours[]
+
+  @@index([nom])
+}
+
+model AnneeScolaire {
+  id        String     @id @default(uuid()) @db.Uuid
+  libelle   String
+  dateDebut DateTime
+  dateFin   DateTime
+  estActive Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  etablissementId String   @db.Uuid
+  etablissement   Etablissement @relation(fields: [etablissementId], references: [id])
+
+  classes    Classe[]
+  notes      Note[]
+  absences   Absence[]
+
+  @@index([etablissementId])
+  @@index([estActive])
+  @@unique([libelle, etablissementId])
+}
+
+model Classe {
+  id                String     @id @default(uuid()) @db.Uuid
+  nom               String
+  niveau            String
+  salleReference    String?
+  etablissementId   String     @db.Uuid
+  anneeScolaireId   String     @db.Uuid
+
+  etablissement   Etablissement @relation(fields: [etablissementId], references: [id])
+  anneeScolaire AnneeScolaire   @relation(fields: [anneeScolaireId], references: [id])
+  eleves          Eleve[]
+  professeurs     Professeur[]
+  cours           Cours[]
+
+  @@index([etablissementId])
+  @@index([anneeScolaireId])
+  @@unique([nom, anneeScolaireId, etablissementId])
+}
+
+model Eleve {
+  id            String   @id @default(uuid()) @db.Uuid
+  matricule     String   @unique
+  dateNaissance DateTime?
+  lieuNaissance String?
+  adresse       String?
+  classeId      String   @db.Uuid
+  userId        String   @unique @db.Uuid
+
+  classe   Classe   @relation(fields: [classeId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  parents  EleveParent[]
+  notes    Note[]
+  absences Absence[]
+
+  @@index([classeId])
+  @@index([userId])
+  @@index([matricule])
+}
+
+model Professeur {
+  id            String   @id @default(uuid()) @db.Uuid
+  matricule     String   @unique
+  specialite    String?
+  userId        String   @unique @db.Uuid
+
+  user          User     @relation(fields: [userId], references: [id])
+  classes       Classe[]
+  matieres      MatiereProfesseur[]
+  cours         Cours[]
+  notes         Note[]
+  absences      Absence[]
+
+  @@index([userId])
+  @@index([matricule])
+}
+
+model MatiereProfesseur {
+  id          String   @id @default(uuid()) @db.Uuid
+  professeurId String  @db.Uuid
+  matiereId   String   @db.Uuid
+
+  professeur Professeur @relation(fields: [professeurId], references: [id])
+  matiere    Matiere    @relation(fields: [matiereId], references: [id])
+
+  @@unique([professeurId, matiereId])
+}
+
+model Matiere {
+  id          String     @id @default(uuid()) @db.Uuid
+  nom         String
+  code        String?
+  coefficient Decimal    @default(1) @db.Decimal(5,2)
+  etablissementId String @db.Uuid
+  createdAt   DateTime   @default(now())
+
+  etablissement Etablissement @relation(fields: [etablissementId], references: [id])
+  professeurs MatiereProfesseur[]
+  cours       Cours[]
+  notes       Note[]
+
+  @@index([etablissementId])
+  @@index([nom])
+}
+
+model Cours {
+  id          String     @id @default(uuid()) @db.Uuid
+  titre       String
+  jourSemaine Int
+  heureDebut  Int
+  heureFin    Int
+  salle       String?
+  classeId    String     @db.Uuid
+  matiereId   String     @db.Uuid
+  professeurId String    @db.Uuid
+  anneeScolaireId String @db.Uuid
+
+  classe     Classe      @relation(fields: [classeId], references: [id])
+  matiere    Matiere     @relation(fields: [matiereId], references: [id])
+  professeur Professeur  @relation(fields: [professeurId], references: [id])
+  anneeScolaire AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  absences   Absence[]
+
+  @@index([classeId])
+  @@index([professeurId])
+  @@index([anneeScolaireId])
+  @@index([jourSemaine, heureDebut])
+}
+
+model Note {
+  id            String     @id @default(uuid()) @db.Uuid
+  valeur        Decimal    @db.Decimal(5,2)
+  sur           Decimal    @default(20) @db.Decimal(5,2)
+  coeff         Decimal    @default(1) @db.Decimal(5,2)
+  type          TypeNote   @default(DEVOIR)
+  libelle       String?
+  dateEvaluation DateTime  @default(now())
+
+  eleveId       String     @db.Uuid
+  matiereId     String     @db.Uuid
+  professeurId  String     @db.Uuid
+  anneeScolaireId String    @db.Uuid
+
+  eleve         Eleve      @relation(fields: [eleveId], references: [id])
+  matiere       Matiere    @relation(fields: [matiereId], references: [id])
+  professeur    Professeur @relation(fields: [professeurId], references: [id])
+  anneeScolaire AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+
+  @@index([eleveId])
+  @@index([matiereId])
+  @@index([professeurId])
+  @@index([anneeScolaireId])
+}
+
+enum TypeNote {
+  DEVOIR
+  INTERRO
+  EXAMEN
+  PARTICIPATION
+}
+
+model Absence {
+  id          String     @id @default(uuid()) @db.Uuid
+  date        DateTime   @default(now())
+  justifiee   Boolean    @default(false)
+  motif       String?
+  type        TypeAbsence @default(ABSENCE)
+
+  eleveId     String     @db.Uuid
+  coursId     String?    @db.Uuid
+  professeurId String    @db.Uuid
+  anneeScolaireId String  @db.Uuid
+
+  eleve         Eleve      @relation(fields: [eleveId], references: [id])
+  cours         Cours?     @relation(fields: [coursId], references: [id])
+  professeur    Professeur @relation(fields: [professeurId], references: [id])
+  anneeScolaire AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+
+  @@index([eleveId])
+  @@index([date])
+  @@index([anneeScolaireId])
+}
+
+enum TypeAbsence {
+  ABSENCE
+  RETARD
+}
+
+model EleveParent {
+  id        String   @id @default(uuid()) @db.Uuid
+  eleveId   String   @db.Uuid
+  parentId  String   @db.Uuid
+  lien      String   @default("Père/Mère")
+
+  eleve  Eleve  @relation(fields: [eleveId], references: [id])
+  parent Parent @relation(fields: [parentId], references: [id])
+
+  @@unique([eleveId, parentId])
+}
+
+model Parent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  profession String?
+
+  user     User        @relation(fields: [userId], references: [id])
+  enfants  EleveParent[]
+
+  @@index([userId])
+}
+
+model Message {
+  id        String     @id @default(uuid()) @db.Uuid
+  sujet     String?
+  contenu   String
+  lu        Boolean    @default(false)
+  dateEnvoi DateTime   @default(now())
+
+  expediteurId String @db.Uuid
+  destinataireId String @db.Uuid
+
+  expediteur   User   @relation("Sender", fields: [expediteurId], references: [id])
+  destinataire User @relation("Receiver", fields: [destinataireId], references: [id])
+
+  @@index([expediteurId])
+  @@index([destinataireId])
+  @@index([lu])
+}
+
+model Notification {
+  id        String     @id @default(uuid()) @db.Uuid
+  titre     String
+  contenu   String
+  lu        Boolean    @default(false)
+  date      DateTime   @default(now())
+  type      String     @default("INFO")
+
+  userId    String     @db.Uuid
+  user      User       @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([lu])
+}
