@@ -51,7 +51,7 @@ model Etablissement {
 
   classes       Classe[]
   matieres      Matiere[]
-  cours         Cours[]
+  anneesScolaires AnneeScolaire[]
 
   @@index([nom])
 }
@@ -70,6 +70,7 @@ model AnneeScolaire {
   classes    Classe[]
   notes      Note[]
   absences   Absence[]
+  cours      Cours[]
 
   @@index([etablissementId])
   @@index([estActive])
